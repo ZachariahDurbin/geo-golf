@@ -1,0 +1,16 @@
+# secrets / local env
+.env
+
+# build output
+**/bin/
+**/obj/
+
+# artifacts (validation output, logs)
+artifacts/
+
+# editor noise
+.vscode/
+.idea/
+*.user
+*.suo
+.DS_Store

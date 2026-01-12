@@ -1,0 +1,3 @@
+/home/zachariah/coursemap/native/linesimplify/build/CMakeFiles/linesimplify.dir
+/home/zachariah/coursemap/native/linesimplify/build/CMakeFiles/edit_cache.dir
+/home/zachariah/coursemap/native/linesimplify/build/CMakeFiles/rebuild_cache.dir
