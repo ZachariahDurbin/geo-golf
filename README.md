@@ -75,33 +75,36 @@ CourseMap.Api (.NET)
 ```bash
 cp .env.example .env
 # edit .env and set SA_PASSWORD to a strong value
-
-2) Start SQL Server
+```
+### 2) Start SQL Server
+```
 make up
-
-3) Initialize DB schema
+```
+### 3) Initialize DB schema
+```
 make init
-
-4) Import demo dataset + validate
+```
+### 4) Import demo dataset + validate
+```
 make validate
-
+```
 
 This writes:
 
 artifacts/validation_report.json
 
-5) Run API
+### 5) Run API
 make api
 
-Demo: spatial queries
+### Demo: spatial queries
 
 Assuming API is running on COURSEMAP_PORT (default 5087):
-
+```
 curl "http://localhost:5087/contains?lat=39.1007&lon=-94.5772"
 curl "http://localhost:5087/nearest?lat=39.1007&lon=-94.5772&type=bunker"
 curl "http://localhost:5087/within?lat=39.1007&lon=-94.5772&radiusMeters=500"
-
-Demo: validation as a “pipeline gate”
+```
+### Demo: validation as a “pipeline gate”
 
 A successful run produces artifacts/validation_report.json and exits 0:
 
@@ -109,7 +112,7 @@ make validate
 echo $?
 
 
-To see a failure:
+### To see a failure:
 
 Edit data/demo.geojson so a feature lies outside the boundary
 
@@ -117,7 +120,7 @@ Re-run make validate
 
 Observe a non-zero exit code and violations listed in validation_report.json
 
-Demo: C++ line simplification in the import pipeline
+### Demo: C++ line simplification in the import pipeline
 
 The importer runs a native C++ function (via P/Invoke) to simplify LineString features before storing them.
 You’ll see a log like:
@@ -134,7 +137,8 @@ FROM dbo.CourseFeatures
 WHERE CourseId='demo-course' AND FeatureType='path';
 "
 
-Project layout
+### Project layout
+```
 .
 ├── data/
 │   └── demo.geojson
@@ -151,7 +155,7 @@ Project layout
 ├── docker-compose.yml
 ├── Makefile
 └── README.md
-
+```
 Notes / decisions
 
 SQL Server is run via Docker for repeatability.

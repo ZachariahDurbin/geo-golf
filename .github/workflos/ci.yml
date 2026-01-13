@@ -1,0 +1,99 @@
+name: ci
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+jobs:
+  build-and-validate:
+    runs-on: ubuntu-latest
+
+    env:
+      # Strong enough for SQL Server container rules
+      SA_PASSWORD: "CI-Str0ng!Passw0rd-123"
+      SQL_HOST: "localhost"
+      SQL_PORT: "1433"
+      SQL_DB: "CourseMap"
+      SQL_USER: "sa"
+      COURSEMAP_PORT: "5087"
+      # Used by Importer + API (Importer is what CI runs)
+      COURSEMAP_CONNECTION_STRING: "Server=localhost,1433;Database=CourseMap;User Id=sa;Password=CI-Str0ng!Passw0rd-123;Encrypt=True;TrustServerCertificate=True;"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Install native build deps (CMake/Ninja)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build g++
+
+      - name: Start SQL Server (docker compose)
+        run: |
+          # Your compose file reads MSSQL_SA_PASSWORD from SA_PASSWORD
+          # If your compose expects MSSQL_SA_PASSWORD instead, adjust env/compose.
+          echo "SA_PASSWORD=${SA_PASSWORD}" > .env
+          docker compose up -d
+          docker ps
+
+      - name: Wait for SQL Server ready
+        run: |
+          for i in {1..60}; do
+            if docker exec coursemap-sql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "${SA_PASSWORD}" -C -Q "SELECT 1" >/dev/null 2>&1; then
+              echo "SQL Server is ready."
+              exit 0
+            fi
+            echo "Waiting for SQL Server..."
+            sleep 2
+          done
+          echo "SQL Server did not become ready in time."
+          docker logs coursemap-sql
+          exit 1
+
+      - name: Initialize DB + schema + spatial index
+        run: |
+          docker exec coursemap-sql /opt/mssql-tools18/bin/sqlcmd \
+            -S localhost -U sa -P "${SA_PASSWORD}" -C \
+            -Q "IF DB_ID('${SQL_DB}') IS NULL CREATE DATABASE ${SQL_DB};"
+
+          # Apply schema
+          docker exec -i coursemap-sql /opt/mssql-tools18/bin/sqlcmd \
+            -S localhost -U sa -P "${SA_PASSWORD}" -C \
+            -i /dev/stdin < sql/schema.sql
+
+          # Apply spatial index (with required SET options)
+          docker exec -i coursemap-sql /opt/mssql-tools18/bin/sqlcmd \
+            -S localhost -U sa -P "${SA_PASSWORD}" -C \
+            -i /dev/stdin < sql/spatial_index.sql
+
+      - name: Build
+        run: |
+          # Use your repo build flow (native + dotnet)
+          dotnet build
+
+      - name: Import + validate (writes artifacts/validation_report.json)
+        run: |
+          mkdir -p artifacts
+          dotnet run --project src/CourseMap.Importer -- \
+            --file data/demo.geojson \
+            --course demo-course \
+            --replace true \
+            --validate true
+
+      - name: Upload validation report
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation_report
+          path: artifacts/validation_report.json
+          if-no-files-found: error
+
+      - name: Dump SQL logs on failure
+        if: failure()
+        run: |
+          docker logs coursemap-sql || true
